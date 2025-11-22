@@ -11,7 +11,6 @@
 #include "common_headers.h"
 
 #include "pnoise.h"
-#include <vectorclass/special/vector3d.h>
 
 #define EIK_DBG_X 80
 #define EIK_DBG_Y 96

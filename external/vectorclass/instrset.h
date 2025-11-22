@@ -245,6 +245,10 @@ const int V_DC = -256;
 // input:  eax = functionnumber, ecx = 0
 // output: eax = output[0], ebx = output[1], ecx = output[2], edx = output[3]
 static inline void cpuid (int output[4], int functionnumber) {	
+#if defined(__aarch64__)
+    output[0] = output[1] = output[2] = output[3] = 0;
+    return;
+#endif
 #if defined(__GNUC__) || defined(__clang__)           // use inline assembly, Gnu/AT&T syntax
     int a, b, c, d;
     __asm("cpuid" : "=a"(a),"=b"(b),"=c"(c),"=d"(d) : "a"(functionnumber),"c"(0) : );

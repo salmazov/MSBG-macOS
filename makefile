@@ -12,8 +12,13 @@ CSCOPE_EXE = c:/msys64/usr/bin/cscope.exe
 GTAGS_EXE = c:/msys64/mingw64/bin/gtags
 
 export GTAGSFORCECPP = 1
+ifdef MIMP_ON_LINUX
+export TMPDIR = /tmp
+export TMP = /tmp
+else
 export TMPDIR = c:/tmp
 export TMP = c:/tmp
+endif
 
 vpath %.c $(MIMP_SOURCE_PATH)
 vpath %.cpp $(MIMP_SOURCE_PATH)
@@ -49,8 +54,10 @@ CFLAGS = $(CFLAGS_OPT) $(CFLAGS_PROF) $(CFLAGS_PLATFORM)\
 	 -Wno-unused-but-set-variable \
 	 -DANN_WITH_FLOAT $(CFLAGS_MT) \
 	 -ffast-math -fno-finite-math-only \
-	 $(CFLAGS_OMP) \
-	 -I. -I$(MIMP_SOURCE_PATH)/../external
+	$(CFLAGS_OMP) \
+	 -I. -I$(MIMP_SOURCE_PATH)/../external -I$(MIMP_SOURCE_PATH)/../external/simde \
+	 -I/opt/homebrew/include -I/opt/homebrew/opt/jpeg/include \
+	 -DSIMDE_ENABLE_NATIVE_ALIASES
 
 # misc. additional flags 
 # CFLAGS3 = -Wa,-mbig-obj
@@ -64,7 +71,7 @@ CFLAGS = $(CFLAGS_OPT) $(CFLAGS_PROF) $(CFLAGS_PLATFORM)\
 
 CPP_FLAGS_ALL = $(CFLAGS) $(CFLAGS2) $(CFLAGS_BW) $(CFLAGS3) $(CPP_FLAGS)
 
-LDFLAGS =
+LDFLAGS = -L/opt/homebrew/lib -L/opt/homebrew/opt/jpeg/lib
 
 CTAGS = $(MIMP_SOURCE_PATH)/tags
 GTAGS =  $(MIMP_SOURCE_PATH)/GTAGS
@@ -152,14 +159,13 @@ OBJS_MSBG_DEMO = main.$(OBJE) msbg_demo.$(OBJE)
 LD_LIBS_FOR_MSBG_DEMO = \
 	    -lpng \
 	    -ljpeg \
-	    -ltbbmalloc -ltbb -ltbbmalloc_proxy \
 	    -lz \
 	    -lm 
 
 ifdef MIMP_ON_LINUX
 
 msbg_demo$(EXE): $(OBJS_MSBG_DEMO) $(STATIC_LIB)
-	$(LD) $(LDFLAGS) $@ \
+	$(LD) $@ $(LDFLAGS) \
 	  $(OBJS_MSBG_DEMO) \
 	  -L. -l$(LIBNAME) \
 	  $(LD_LIBS_FOR_MSBG_DEMO) \
@@ -172,7 +178,7 @@ else
 # native windows application via MSYS2/MinGw64
 #
 msbg_demo$(EXE): $(OBJS_MSBG_DEMO) $(STATIC_LIB)
-	$(LD) $(LDFLAGS) $@ \
+	$(LD) $@ $(LDFLAGS) \
 	  -static-libgcc -static-libstdc++ \
 	  $(OBJS_MSBG_DEMO) \
 	  -L. -l$(LIBNAME) \
@@ -252,4 +258,3 @@ depend: gtags_make
 	done
 
 #include $(MIMP_SOURCE_PATH)/dependencies.mk
-

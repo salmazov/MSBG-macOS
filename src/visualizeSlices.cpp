@@ -13,7 +13,7 @@
 #include <limits.h>
 #include <math.h>
 #include <tbb/tbb.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "vectorclass_util.h"
 #include "globdef.h"
 #include "mtool.h"

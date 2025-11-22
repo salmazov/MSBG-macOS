@@ -19,9 +19,7 @@
 #include <float.h>
 #include <errno.h>
 #include <assert.h>
-#include <xmmintrin.h>
-#include <vectorclass/vectorclass.h>
-#include <vectorclass/special/vector3d.h>
+#include "simd_types.h"
 #include "vectorclass_util.h"
 #include "globdef.h"
 #include "fastmath.h"
@@ -58,6 +56,18 @@ namespace CurlNoise2
 //
 //	
 //
+
+static inline Vec4d cross_product3(const Vec4d& a, const Vec4d& b)
+{
+  // 3D cross product; ignore the 4th lane and return w = 0.
+  double ax = vfget_x(a), ay = vfget_y(a), az = vfget_z(a);
+  double bx = vfget_x(b), by = vfget_y(b), bz = vfget_z(b);
+  return Vec4d(ay * bz - az * by,
+               az * bx - ax * bz,
+               ax * by - ay * bx,
+               0.0);
+}
+
 template<int DO_RET_POT_VAL, int S_CURVE_TYP /*1=linear,3=quintic*/, int DO_DEBUG >
 Vec4f curlNoise4D_( Vec4f pos, Vec4f *pPotValue )
 {
@@ -519,12 +529,11 @@ Vec4f curlNoiseSum4D(
 
   if(modfield)
   {
-    Vec3d sum_curl_pot = sum,
-	  sum_val_pot = sum_pot,
-	  modf_grad( vfget_y(*modfield), vfget_z(*modfield), vfget_w(*modfield) );
+    Vec4d sum_curl_pot = sum;
+    Vec4d sum_val_pot = sum_pot;
+    Vec4d modf_grad( vfget_y(*modfield), vfget_z(*modfield), vfget_w(*modfield), 0.0 );
     double modf = vfget_x(*modfield);
-    sum_curl_pot = modf * sum_curl_pot + cross_product( modf_grad, sum_val_pot );
-    sum = sum_curl_pot;
+    sum = modf * sum_curl_pot + cross_product3( modf_grad, sum_val_pot );
   }
 
   if(out_lf)

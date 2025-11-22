@@ -23,7 +23,8 @@
 
 #include <cmath>
 //#include <functional>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
+#include "vectorclass_util.h"
 
 
 #include "globdef.h"

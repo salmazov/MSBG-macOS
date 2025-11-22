@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "simd_compat.h"
 #include <tbb/tbb.h>
 #include "globdef.h"
 #include "mtool.h"

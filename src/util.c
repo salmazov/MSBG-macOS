@@ -935,14 +935,23 @@ int UtGetFileSize( char *fpath, size_t *p_size )
 	  fpath,(int)errno),MI_EIO);
   }
 
-  off64_t fsize = lseek64(fd, 0, SEEK_END);
-  if(fsize<0)
-  {
-    TRCERRR(("lseek64 failed for file '%s' errno=%d\n",
-	  fpath,(int)errno),MI_EIO);
-  }
-
-  *p_size = fsize;
+  #if defined(__APPLE__)
+    off_t fsize = lseek(fd, 0, SEEK_END);
+    if(fsize<0)
+    {
+      TRCERRR(("lseek failed for file '%s' errno=%d\n",
+        fpath,(int)errno),MI_EIO);
+    }
+    *p_size = (size_t)fsize;
+  #else
+    off64_t fsize = lseek64(fd, 0, SEEK_END);
+    if(fsize<0)
+    {
+      TRCERRR(("lseek64 failed for file '%s' errno=%d\n",
+        fpath,(int)errno),MI_EIO);
+    }
+    *p_size = fsize;
+  #endif
 
 rcCatch:
 
@@ -2795,5 +2804,4 @@ UtFSM *UtCreateFSM( size_t maxBlocks, size_t blockSize )
   }
   return fsm;
 }
-
 

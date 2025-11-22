@@ -9,10 +9,8 @@
 #include <float.h>
 #include <errno.h>
 #include <assert.h>
-#include <iacaMarks.h>
-#include <xmmintrin.h>
-#include <vectorclass/vectorclass.h>
-#include <vectorclass/special/vector3d.h>
+#include "iacaMarks.h"
+#include "simd_types.h"
 #include "vectorclass_util.h"
 #include "globdef.h"
 #include "fastmath.h"

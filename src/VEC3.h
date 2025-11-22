@@ -9,7 +9,8 @@
 #include <stdlib.h>
 #include <iostream>
 #include <sstream>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
+#include "vectorclass_util.h"
 #include "globdef.h"
 #include "mm.h"
 #include "log.h"

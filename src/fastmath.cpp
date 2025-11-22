@@ -16,7 +16,7 @@
 #include <limits.h>
 #include <math.h>
 #include <float.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "globdef.h"
 #include "fastmath.h"
 
@@ -37,4 +37,3 @@ float FMA_FastApproxLog2( float x )
 {
   return FMA_FAST_APPROX_LOG2(x);
 }
-

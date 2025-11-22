@@ -3,7 +3,7 @@
 
 #ifdef __cplusplus
 #include <float.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "vectorclass_util.h"
 #include "util.h"
 #endif
@@ -54,53 +54,51 @@ inline int FMA_FAST_INT_LOG2(double x)
 inline Vec4f FMA_FastRand( Vec4ui* rnds )
 {
   // http://www.iquilezles.org/www/articles/sfrand/sfrand.htm
-#if 0
-  (*rnds) *= 16807; // http://www.iquilezles.org/www/articles/sfrand/sfrand.htm
-  Vec4f u = _mm_castsi128_ps((*rnds)>>9|0x3f800000); 
-  return u-1.0f;
-#else
-  Vec4f u = _mm_castsi128_ps((*rnds)>>9|0x3f800000); 
-  (*rnds) *= 16807; 
-  return u-1.0f;
-#endif
+  Vec4ui r = (*rnds) * Vec4i(16807);
+  *rnds = r;
+  Vec4ui bits = (r >> 9) | Vec4i(0x3f800000);
+  Vec4f u(simde_mm_castsi128_ps(bits));
+  return u - 1.0f;
 }
 
 inline Vec8f FMA_FastRand( Vec8ui* rnds )
 {
-  Vec8f u = _mm256_castsi256_ps((*rnds)>>9|0x3f800000); 
-  (*rnds) *= 16807; 
-  return u-1.0f;
+  Vec8ui r = (*rnds) * Vec8i(16807);
+  *rnds = r;
+  Vec8ui bits = (r >> 9) | Vec8i(0x3f800000);
+  Vec8f u(simde_mm256_castsi256_ps(bits));
+  return u - 1.0f;
 }
 
 inline void FMA_FastRandSeed( Vec4ui* rnds )
 {
   //UT_ASSERT2( vall((*rnds)<100000));
-  Vec4ui h_(135623,34847,25324534,142423);
+  Vec4ui h_(142423,25324534,34847,135623);
   h_ += *rnds;
   h_ ^= h_ >> 16;	// 'murmur' hash 
-  h_ *= 0x85ebca6b;
+  h_ *= Vec4i(0x85ebca6b);
   h_ ^= h_ >> 13;
-  h_ *= 0xc2b2ae35;
+  h_ *= Vec4i(0xc2b2ae35);
   h_ ^= h_ >> 16;
   h_ = select( h_==0, // ensure not 0 (random integers)
-        Vec4ui(659809188,687332320,534213693,107384577),
-	h_ );
+        Vec4i(107384577,534213693,687332320,659809188),
+        h_ );
   *rnds = h_; 
   (void)FMA_FastRand( rnds );
 }
 
 inline void FMA_FastRandSeed( Vec8ui* rnds )
 {
-  Vec8ui h_(135623,34847,25324534,142423,963511,337616,977104,238094);
+  Vec8ui h_(238094,977104,337616,963511,142423,25324534,34847,135623);
   h_ += *rnds;
   h_ ^= h_ >> 16;	// 'murmur' hash 
-  h_ *= 0x85ebca6b;
+  h_ *= Vec8i(0x85ebca6b);
   h_ ^= h_ >> 13;
-  h_ *= 0xc2b2ae35;
+  h_ *= Vec8i(0xc2b2ae35);
   h_ ^= h_ >> 16;
   h_ = select( h_==0, // ensure not 0 (random integers)
-        Vec8ui(659809188,687332320,534213693,107384577,26243257,6254649,9134374,1149582),
-	h_ );
+        Vec8i(1149582,9134374,6254649,26243257,107384577,534213693,687332320,659809188),
+        h_ );
   *rnds = h_; 
   (void)FMA_FastRand( rnds );
 }
@@ -181,17 +179,16 @@ inline T FMA_FastApproxGaussRand( T_seed* rnds )
   return s;
 }
 
-inline Vec4f FMA_FastRandVec3D( Vec4ui* rnds )
-{
-  // Uniformly distributed directions, uniformly distributed length in [0,1]
-  //https://stackoverflow.com/questions/9750908/how-to-generate-a-unit-vector-pointing-in-a-random-direction-with-isotropic-dist
-  Vec4f u = FMA_FastApproxGaussRand<Vec4f,Vec4ui>( rnds );
-  u = v4f_zero_to<3>(u);
-  float mag = sqrtf(v3normSq(u));
-  mag = vmax(mag,1e-7f);
-  float scale = vfget_x(FMA_FastRand(rnds));
-  return u * scale * 1.0f/mag;
-}
+// TODO: implement Vec3D helper or remove if unused
+//inline Vec4f FMA_FastRandVec3D( Vec4ui* rnds )
+//{
+//  Vec4f u = FMA_FastApproxGaussRand<Vec4f,Vec4ui>( rnds );
+//  u = v4f_zero_to<3>(u);
+//  float mag = sqrtf(v3normSq(u));
+//  mag = vmax(mag,1e-7f);
+//  float scale = vfget_x(FMA_FastRand(rnds));
+//  return u * scale * 1.0f/mag;
+//}
 
 inline void FMA_FastRandSeed( uint32_t* rnds )
 {
@@ -721,4 +718,3 @@ int FMA_FastIntLog2( double x );
 #endif
 
 #endif /* FASTMATH_H */
-

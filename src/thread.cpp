@@ -19,7 +19,7 @@
 #include <float.h>
 #include <limits.h>
 #include <math.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "globdef.h"
 #include "mtool.h"
 #include "fastmath.h"
@@ -203,4 +203,3 @@ void ThrGetMaxNumberOfThreads( int *pNumThreadsOMP,
 {
   return THR::getMaxNumberOfThreads( pNumThreadsOMP, pNumThreadsTBB );
 }
-

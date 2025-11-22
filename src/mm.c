@@ -19,7 +19,16 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
-#ifdef MIMP_ON_LINUX
+#if defined(__APPLE__)
+static inline void* _mm_malloc(size_t size, size_t align) {
+  void *p = NULL;
+  if (posix_memalign(&p, align, size) != 0) return NULL;
+  return p;
+}
+static inline void _mm_free(void *p) { free(p); }
+#elif defined(MIMP_ON_LINUX)
+#include <mm_malloc.h>
+#else
 #include <mm_malloc.h>
 #endif
 
@@ -131,4 +140,3 @@ char *MM_Str2UserId( const char *str,
   uid[MM_UID_SZ] = 0;
   return uid;
 }
-

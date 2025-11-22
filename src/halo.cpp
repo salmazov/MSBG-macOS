@@ -17,7 +17,7 @@
 #include <float.h>
 #include <limits.h>
 #include <math.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "vectorclass_util.h"
 #include "globdef.h"
 #include "mtool.h"
@@ -738,4 +738,3 @@ float *HaloBlockSet::fillHaloBlock3(  int iChan,
 }
 
 } // namespace MSBG
-

@@ -18,7 +18,7 @@
 #include <float.h>
 #include <limits.h>
 #include <math.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "globdef.h"
 #include "mtool.h"
 #include "fastmath.h"
@@ -596,4 +596,3 @@ void BlockPool::destroy( BlockPool** p_, int disclaimMem )
     FREEMEM_ALIGNED(p);
   }
 }
-

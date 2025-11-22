@@ -12,7 +12,8 @@
 #define GRID_H
 
 #ifdef __cplusplus
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
+#include "vectorclass_util.h"
 #endif
 
 #define GRID_GEN		(1<<0)
@@ -471,4 +472,3 @@ double G3D_GetGaussianKernel(
 #endif
 
 #endif /* GRID_H */
-

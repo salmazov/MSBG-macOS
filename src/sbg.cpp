@@ -18,7 +18,7 @@
 #include <limits.h>
 #include <math.h>
 #include <tbb/tbb.h>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "globdef.h"
 #include "mtool.h"
 #include "fastmath.h"
@@ -1608,4 +1608,3 @@ template class SparseGrid<Vec3Float>;
 template class SparseGrid<Vec3Uint16>;
 
 } // namespace SBG
-

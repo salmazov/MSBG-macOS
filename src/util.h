@@ -21,7 +21,7 @@
 #include "math.h"
 #ifdef __cplusplus
 #include <vector>
-#include <vectorclass/vectorclass.h>
+#include "simd_types.h"
 #include "vectorclass_util.h"
 #endif
 
@@ -1081,4 +1081,3 @@ int UtHTimerStop(UtHTimer *tm);
 MSBG_NAMESPACE_END
 
 #endif /* UTIL_H */
-
