@@ -35,8 +35,10 @@
 #endif
 #endif
 #else
+#ifndef MIMP_NOREDEFINEMALLOC
 #define calloc xxcalloc   
 #define realloc xxrealloc  
+#endif
 #endif
 
 //#ifdef MI_WITH_ICC

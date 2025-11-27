@@ -19,13 +19,19 @@
 #include <limits.h>
 #include <errno.h>
 #include <unistd.h>
+#include <strings.h>
 
 #include "msbg.h"
 #include "msbg_demo.h"
+#include "metal_renderer_stub.h"
 
 //#include <openvdb/openvdb.h>
 
 int nMaxThreads=-1;
+
+static const char* backendName(BackendType b) {
+  return b == BACKEND_GPU ? "gpu" : "cpu";
+}
 
 /*-------------------------------------------------------------------*/
 /* 								     */	
@@ -41,6 +47,8 @@ static void showUsage( void )
   printf("  -a<x,y,z,ax,ay,az,f>  Camera: position (x,y,z), look-at point (ax,ay,az) and focal-lentgh\n");
   printf("  -l<x,y,z>  Scene light position\n");
   printf("  -i<width,height>  Camera render resolution.\n");
+  printf("  -g<cpu|gpu>  Compute backend (default=cpu; gpu currently falls back to cpu)\n");
+  printf("  -V    Validate GPU render against CPU checksum (renders twice)\n");
   printf("  -v<n>  Log-level (0-3)\n");
   printf("  -h show this help\n");  
   printf("\n");
@@ -51,6 +59,8 @@ int main(int argc, char **argv)
   int multiProc=0,
       blockSize0=16,
       testCase=0;
+  bool validateGpu=false;
+  BackendType backend = BACKEND_CPU;
 
   //
   // Open log file 
@@ -89,7 +99,7 @@ int main(int argc, char **argv)
 
   {
     char c;
-    while((c = getopt(argc,argv,"hl:i:a:b:u:r:f:c:jv:")) != EOF)
+    while((c = getopt(argc,argv,"hl:i:a:b:u:r:f:c:g:jv:V")) != EOF)
     {
       switch(c)
       {
@@ -149,12 +159,25 @@ int main(int argc, char **argv)
 	case 'c':
 	  testCase = atoi( optarg );
 	  break;
+	case 'g':
+	  {
+	    if(!strcasecmp(optarg,"cpu")) backend = BACKEND_CPU;
+	    else if(!strcasecmp(optarg,"gpu")) backend = BACKEND_GPU;
+	    else {
+	      TRCERR(("invalid backend '%s' (use cpu or gpu)\n",optarg));
+	      exit(1);
+	    }
+	  }
+	  break;
 	case 'r':
 	  resolution = atoi( optarg );
 	  break;
 	case 'v':
 	  LogLevel = atoi( optarg );
 	  break;
+    case 'V':
+      validateGpu = true;
+      break;
       }   
     }
   }
@@ -217,12 +240,32 @@ int main(int argc, char **argv)
   resolution = ALIGN(resolution,blockSize0);
   int sx = resolution, sy = sx, sz = sx;
 
-  TRCP(("opcode=%d fname=%s %dx%dx%d\n",testCase,filename,sx,sy,sz)); 
+  TRCP(("opcode=%d backend=%s fname=%s %dx%dx%d\n",testCase,backendName(backend),filename,sx,sy,sz)); 
+
+  if(backend == BACKEND_GPU)
+  {
+    // Check Metal availability (may crash if Metal framework not properly linked)
+    try {
+      const Backend::MetalAvailability availability = Backend::queryMetalAvailability();
+      if(!availability.runtimePresent || !availability.devicePresent)
+      {
+        TRCP(("GPU backend requested but Metal unavailable (%s); CPU fallback will be used.\n",
+              availability.reason.c_str()));
+      }
+      else
+      {
+        TRCP(("GPU backend requested; Metal device detected.\n"));
+      }
+    } catch (...) {
+      TRCP(("GPU backend: exception during Metal availability check; CPU fallback will be used.\n"));
+    }
+  }
 
   const char *basePointsFile = testCase==2 ? 
     				  "../data/bun_zipper.ply" :
 				  "../data/bun_zipper_res2.ply";
-  msbg_test_sparse(testCase, basePointsFile, blockSize0, sx, sy, sz);
+  msbg_test_sparse(testCase, basePointsFile, blockSize0, sx, sy, sz, backend,
+                   validateGpu);
   
   return 0;
 }

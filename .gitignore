@@ -13,6 +13,7 @@ finds
 todo.txt
 notes.txt
 scratch.txt
+*.md
 *.log
 *.bak
 rs 

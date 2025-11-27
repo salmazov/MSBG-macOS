@@ -26,6 +26,8 @@
 #include "msbg.h"
 
 #include "render.h"
+#include "backend.h"
+#include "backend_compute.h"
 
 #define VIS_OUTPUT_DIR "out_msbg_demo"
 
@@ -126,64 +128,6 @@ float camPos[3] = {.5f,.8f,.7f},
       camZoom =1.0f;
 int camRes[2] = {3840,2160};
 
-static void render_scene( int testCase, MSBG::MultiresSparseGrid *msbg, int chan, 
-     			  PnlPanel *pnl )
-{
-  SBG::SparseGrid<uint16_t> *sg = msbg->getUint16Channel(chan,0);
-
-  UtTimer tm;
-  int sx=camRes[0], sy=camRes[1];
-
-  TRCP(("Rendering image %dx%d.\n",sx,sy));
-
-  RDR::RaymarchRenderer renderer(sx,sy, sg);
-#if 1
-
-  #if 1
-  renderer.setCamera( {camPos[0],camPos[1],camPos[2]}, 
-      		      {camLookAt[0],camLookAt[1],camLookAt[2]}, camZoom); 
-
-
-//  renderer.setCamera({.5,.8,.7}, {.5,.5,.5}, 1); 
-  renderer.setSunLight({camLight[0],camLight[1],camLight[2]});
-  renderer.setSurfaceColor({0.8f,0.6f,0.4f});
-  #else
-
-  renderer.setCamera({.5,.8,.8}, {.5,.5,.5}, 1.f);
-//  renderer.setCamera({.5,1,1}, {.5,.5,.5}, 1.5f);
-  
-
-  renderer.setSunLight({.5,5,5});
-  renderer.setSurfaceColor({0.8f,0.6f,0.4f});
-  #endif
-
-#else
-  renderer.setCamera({.5,.5,.65}, {.5,.5,.5}, 0.8f);
-//  renderer.setCamera({0,.5,1}, {0.4,0.5,0.5}, 2.5f);
-  renderer.setSunLight({.5,5,5});
-  renderer.setSurfaceColor({0.8f,0.6f,0.4f});
-#endif
-
-
-  TIMER_START(&tm);
-
-  BmpBitmap *B = renderer.render();
-
-  TIMER_STOP(&tm);
-  TRCP(("CPU (rendering) %.2f sec, %.0f pixels/sec)\n",
-    (double)TIMER_DIFF_MS(&tm)/1000.,
-    ((double)sy*sy)/(double)(TIMER_DIFF_MS(&tm)/1000.0)));	
-
-  PnlShowBitmap2( pnl, B );  
-
-  pnl->totalTime = 0;
-  msbg->saveVisualizationBitmap( B, pnl->title );
-
-  TRCP(("Output images saved to '%s/'.\n",VIS_OUTPUT_DIR));
-  
-  BmpDeleteBitmap(&B);
-}
-
 /////////////////////////////////////////////////////////////////////////////////
 //
 //
@@ -226,7 +170,9 @@ int msbg_test_multires(int bsx0, int sx, int sy, int sz)
 //
 /////////////////////////////////////////////////////////////////////////////////
 int msbg_test_sparse(int testCase, const char *basePointsFile, 
-    		     int bsx0, int sx, int sy, int sz)
+    		     int bsx0, int sx, int sy, int sz,
+                     BackendType backend,
+                     bool validateAgainstCpu)
 {
   using namespace MSBG;
   using namespace SBG;
@@ -708,27 +654,18 @@ int msbg_test_sparse(int testCase, const char *basePointsFile,
   //
   /////////////////////////////////////////////////////////////////////////////////
   int nIterPde = 5;
+  float dtPde = testCase==2 ? 0.1f : 0.05f;
 
   TRCP(("Applying mean curvature smoothing PDE (%d iterations)\n",nIterPde));
 
   TIMER_START(&tm);
 
-  msbg->applyChannelPdeFast<RenderDensity>( 
-		       chan, CH_NULL, CH_NULL,
-		       &activeBlocks,
-		       -(PDE_MEAN_CURVATURE + OPT_8_COLOR_SCHEME ),
-		      TRUE,
-		      0, 0, 0, 
-		      nIterPde, // number of iterations
-		      1.0f,		     
-		      testCase==2 ? 0.1 : 0.05, // time step		   
-		      0, NULL, 0,0,0,0, 0, 0, 0,
-		      0  // vis opt*/
-		      );
+  Backend::applyMeanCurvaturePde<RenderDensity>(
+      testCase, msbg, chan, &activeBlocks, backend, nIterPde, dtPde);
 
   TIMER_STOP(&tm);
 
-  TRCP(("CPU (Mean Curvature PDE) %.2f seconds.\n",(double)TIMER_DIFF_MS(&tm)/1000.));
+  TRCP(("PDE smoothing %.2f seconds.\n",(double)TIMER_DIFF_MS(&tm)/1000.));
 
   /////////////////////////////////////////////////////////////////////////////////
   //
@@ -748,8 +685,9 @@ int msbg_test_sparse(int testCase, const char *basePointsFile,
 
   {
     static int pnl = -1;
-    render_scene( testCase, msbg, chan, 
-		  MiGetAuxPanel2(&pnl,"scene_after_PDE_smoothing") ); 
+    Backend::renderScene( testCase, msbg, chan, &activeBlocks,
+		  MiGetAuxPanel2(&pnl,"scene_after_PDE_smoothing"),
+                  backend, validateAgainstCpu ); 
   }
 
   /////////////////////////////////////////////////////////////////////////////////

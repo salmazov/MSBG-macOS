@@ -11,6 +11,15 @@ MIMP_SOURCE_PATH = ../src
 CSCOPE_EXE = c:/msys64/usr/bin/cscope.exe
 GTAGS_EXE = c:/msys64/mingw64/bin/gtags
 
+METAL ?= 0
+CLANG ?= clang
+CLANGXX ?= clang++
+LLVM_CLANG ?= /opt/homebrew/opt/llvm/bin/clang
+LLVM_CLANGXX ?= /opt/homebrew/opt/llvm/bin/clang++
+STD_LIB ?=
+LD_OPENMP ?=
+OPENMP_LIB = $(if $(LD_OPENMP),$(LD_OPENMP),-lgomp)
+
 export GTAGSFORCECPP = 1
 ifdef MIMP_ON_LINUX
 export TMPDIR = /tmp
@@ -24,6 +33,10 @@ vpath %.c $(MIMP_SOURCE_PATH)
 vpath %.cpp $(MIMP_SOURCE_PATH)
 vpath %.h $(MIMP_SOURCE_PATH)
 vpath %.ispc $(MIMP_SOURCE_PATH)
+vpath %.mm $(MIMP_SOURCE_PATH)
+
+CC := $(if $(CC_BIN),$(CC_BIN),/opt/homebrew/bin/gcc-15)
+CXX := $(if $(CXX_BIN),$(CXX_BIN),/opt/homebrew/bin/g++-15)
 
 MFILE = makefile
 
@@ -69,13 +82,34 @@ CFLAGS = $(CFLAGS_OPT) $(CFLAGS_PROF) $(CFLAGS_PLATFORM)\
 #CFLAGS3 = -ftree-vectorizer-verbose=10
 #CFLAGS3 = -fno-tree-vectorize -ftree-vectorizer-verbose=2
 
-CPP_FLAGS_ALL = $(CFLAGS) $(CFLAGS2) $(CFLAGS_BW) $(CFLAGS3) $(CPP_FLAGS)
+CPP_FLAGS_ALL = $(CFLAGS) $(CFLAGS2) $(CFLAGS_BW) $(CFLAGS3) $(CPP_FLAGS) $(STD_LIB)
 
 LDFLAGS = -L/opt/homebrew/lib -L/opt/homebrew/opt/jpeg/lib
 
 CTAGS = $(MIMP_SOURCE_PATH)/tags
 GTAGS =  $(MIMP_SOURCE_PATH)/GTAGS
 CSCOPE = $(MIMP_SOURCE_PATH)/cscope.out
+
+ifeq ($(METAL),1)
+  STD_LIB := -stdlib=libc++
+  ifneq (,$(wildcard $(LLVM_CLANGXX)))
+    CC := $(LLVM_CLANG)
+    CXX := $(LLVM_CLANGXX)
+    override LD_OPENMP := -L/opt/homebrew/opt/llvm/lib -lomp -Wl,-rpath,/opt/homebrew/opt/llvm/lib
+    override CFLAGS_OMP := -fopenmp -I/opt/homebrew/opt/llvm/include
+    CFLAGS_EXT += -DMIMP_NOREDEFINEMALLOC
+  else
+    $(error METAL=1 requires Homebrew llvm at $(LLVM_CLANGXX); run with LLVM_CLANGXX=/opt/homebrew/opt/llvm/bin/clang++ LLVM_CLANG=/opt/homebrew/opt/llvm/bin/clang)
+  endif
+  override LD = $(CLANGXX) -o
+  METAL_SRC = metal_renderer.mm
+  METAL_OBJ = metal_renderer.$(OBJE)
+  METAL_LDFLAGS = -framework Metal -framework Foundation $(STD_LIB)
+else
+  METAL_SRC = metal_renderer_stub.cpp
+  METAL_OBJ = metal_renderer_stub.$(OBJE)
+  METAL_LDFLAGS =
+endif
 #
 # source files
 #
@@ -85,7 +119,7 @@ SOURCE = main.cpp msbg_demo.cpp gwx.c mtool.c util.c util2.cpp plot.c rand.c pan
 	 readpng.c sbg.cpp thread.cpp fastmath.cpp blockpool.cpp grid.c \
 	 bitmap.c bitmap2.c pnoise.c pnoise2.cpp pnoise3.cpp halo.cpp msbg.cpp \
 	 msbg2.cpp msbg3.cpp msbg4.cpp visualizeSlices.cpp render.cpp \
-	 msbgaux.cpp mm.c mm2.c 
+	 msbgaux.cpp mm.c mm2.c backend.cpp gpu_block_packing.cpp $(METAL_SRC)
 
 HEADER = MGWin.h VEC3.h bitmap.h blockpool.h common_headers.h fastmath.h globdef.h \
 	grid.h gwx.h halo.h kernels_ispc.h log.h mm.h msbg.h msbg_demo.h msbgcell.h \
@@ -101,12 +135,22 @@ STATIC_LIB = lib$(LIBNAME).a
 SHARED_LIB = lib$(LIBNAME).so
 
 %.$(OBJE) : %.cpp 
-	$(CC) -c $(CPP_FLAGS_ALL) \
+	$(CXX) -c $(CPP_FLAGS_ALL) \
 	      -o $@ $<
 
 %.$(OBJE) : %.c 
 	$(CC) -c $(CFLAGS) $(CFLAGS2) $(CFLAGS_BW) $(CFLAGS3) \
 	      -o $@ $<
+
+%.$(OBJE) : %.mm
+	$(CXX) -c -std=gnu++17 -fobjc-arc -fobjc-exceptions $(STD_LIB) \
+	  $(CFLAGS_PLATFORM) $(CFLAGS_MIMP_ENV) $(CFLAGS_TBB) -DTBB_SUPPRESS_DEPRECATED_MESSAGES \
+	  -Wall $(CFLAGS_EXT) $(CFLAGS_WARN) $(CFLAGS_BW) \
+	  -DSIMDE_NO_NATIVE \
+	  $(CFLAGS_OMP) \
+	  -I. -I$(MIMP_SOURCE_PATH)/../external -I$(MIMP_SOURCE_PATH)/../external/simde \
+	  -I/opt/homebrew/include -I/opt/homebrew/opt/jpeg/include \
+	  -o $@ $<
 
 all: msbg_demo$(EXE) 
 
@@ -154,31 +198,34 @@ $(SHARED_LIB): $(OBJS_MSBG_LIB)
 # msbg_demo
 #
 
-OBJS_MSBG_DEMO = main.$(OBJE) msbg_demo.$(OBJE) 
+OBJS_MSBG_DEMO = main.$(OBJE) msbg_demo.$(OBJE) backend.$(OBJE) \
+		gpu_block_packing.$(OBJE) \
+		$(METAL_OBJ)
 
 LD_LIBS_FOR_MSBG_DEMO = \
 	    -lpng \
 	    -ljpeg \
 	    -lz \
-	    -lm 
+  -lm \
+	    $(METAL_LDFLAGS)
 
 ifdef MIMP_ON_LINUX
 
 msbg_demo$(EXE): $(OBJS_MSBG_DEMO) $(STATIC_LIB)
-	$(LD) $@ $(LDFLAGS) \
+	$(LD) $@ $(LDFLAGS) $(STD_LIB) \
 	  $(OBJS_MSBG_DEMO) \
 	  -L. -l$(LIBNAME) \
 	  $(LD_LIBS_FOR_MSBG_DEMO) \
 		$(LDFLAGS_BW) \
 		$(LDFLAGS_PROF) \
-		-lgomp \
+		$(OPENMP_LIB) \
 		$(LFLAGS_MT)
 else
 # 
 # native windows application via MSYS2/MinGw64
 #
 msbg_demo$(EXE): $(OBJS_MSBG_DEMO) $(STATIC_LIB)
-	$(LD) $@ $(LDFLAGS) \
+	$(LD) $@ $(LDFLAGS) $(STD_LIB) \
 	  -static-libgcc -static-libstdc++ \
 	  $(OBJS_MSBG_DEMO) \
 	  -L. -l$(LIBNAME) \

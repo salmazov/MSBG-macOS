@@ -340,15 +340,19 @@ inline Vec4i operator-(const Vec4i& a, int32_t s) { return a - Vec4i(s); }
 inline Vec4i operator*(const Vec4i& a, int32_t s) { return a * Vec4i(s); }
 inline Vec4i operator*(int32_t s, const Vec4i& a) { return a * s; }
 inline Vec4i operator-(int32_t s, const Vec4i& a) { return Vec4i(s) - a; }
-inline Vec4i operator>>(const Vec4i& a, int s) { return Vec4i(simde_mm_srli_epi32(a.v, s)); }
-inline Vec4i operator<<(const Vec4i& a, int s) { return Vec4i(simde_mm_slli_epi32(a.v, s)); }
+inline Vec4i operator>>(const Vec4i& a, int s) {
+  return Vec4i(simde_mm_srl_epi32(a.v, simde_mm_cvtsi32_si128(s)));
+}
+inline Vec4i operator<<(const Vec4i& a, int s) {
+  return Vec4i(simde_mm_sll_epi32(a.v, simde_mm_cvtsi32_si128(s)));
+}
 inline Vec4i& operator+=(Vec4i& a, const Vec4i& b) { a.v = simde_mm_add_epi32(a.v, b.v); return a; }
 inline Vec4i& operator-=(Vec4i& a, const Vec4i& b) { a.v = simde_mm_sub_epi32(a.v, b.v); return a; }
 inline Vec4i& operator*=(Vec4i& a, const Vec4i& b) { a.v = simde_mm_mullo_epi32(a.v, b.v); return a; }
 inline Vec4i& operator+=(Vec4i& a, int32_t s) { a = a + s; return a; }
 inline Vec4i& operator-=(Vec4i& a, int32_t s) { a = a - s; return a; }
 inline Vec4i& operator*=(Vec4i& a, int32_t s) { a = a * s; return a; }
-inline Vec4i& operator>>=(Vec4i& a, int s) { a.v = simde_mm_srli_epi32(a.v, s); return a; }
+inline Vec4i& operator>>=(Vec4i& a, int s) { a.v = simde_mm_srl_epi32(a.v, simde_mm_cvtsi32_si128(s)); return a; }
 inline Vec4i operator&(const Vec4i& a, const Vec4i& b) { return Vec4i(simde_mm_and_si128(a.v, b.v)); }
 inline Vec4i operator|(const Vec4i& a, const Vec4i& b) { return Vec4i(simde_mm_or_si128(a.v, b.v)); }
 inline Vec4i operator^(const Vec4i& a, const Vec4i& b) { return Vec4i(simde_mm_xor_si128(a.v, b.v)); }
@@ -371,8 +375,12 @@ inline Vec8i operator-(const Vec8i& a, int32_t s) { return a - Vec8i(s); }
 inline Vec8i operator*(const Vec8i& a, int32_t s) { return a * Vec8i(s); }
 inline Vec8i operator*(int32_t s, const Vec8i& a) { return a * s; }
 inline Vec8i operator-(int32_t s, const Vec8i& a) { return Vec8i(s) - a; }
-inline Vec8i operator>>(const Vec8i& a, int s) { return Vec8i(simde_mm256_srli_epi32(a.v, s)); }
-inline Vec8i operator<<(const Vec8i& a, int s) { return Vec8i(simde_mm256_slli_epi32(a.v, s)); }
+inline Vec8i operator>>(const Vec8i& a, int s) {
+  return Vec8i(simde_mm256_srl_epi32(a.v, simde_mm_cvtsi32_si128(s)));
+}
+inline Vec8i operator<<(const Vec8i& a, int s) {
+  return Vec8i(simde_mm256_sll_epi32(a.v, simde_mm_cvtsi32_si128(s)));
+}
 inline Vec8i& operator+=(Vec8i& a, const Vec8i& b) { a.v = simde_mm256_add_epi32(a.v, b.v); return a; }
 inline Vec8i& operator-=(Vec8i& a, const Vec8i& b) { a.v = simde_mm256_sub_epi32(a.v, b.v); return a; }
 inline Vec8i& operator*=(Vec8i& a, const Vec8i& b) { a.v = simde_mm256_mullo_epi32(a.v, b.v); return a; }
@@ -396,8 +404,12 @@ inline Vec4uq operator&(const Vec4uq& a, const Vec4uq& b) { return Vec4uq(simde_
 inline Vec4uq operator|(const Vec4uq& a, const Vec4uq& b) { return Vec4uq(simde_mm256_or_si256(a.v, b.v)); }
 inline Vec4uq operator^(const Vec4uq& a, const Vec4uq& b) { return Vec4uq(simde_mm256_xor_si256(a.v, b.v)); }
 inline Vec4uq operator~(const Vec4uq& a) { return Vec4uq(simde_mm256_xor_si256(a.v, simde_mm256_set1_epi64x(-1))); }
-inline Vec4uq operator<<(const Vec4uq& a, int s) { return Vec4uq(simde_mm256_slli_epi64(a.v, s)); }
-inline Vec4uq operator>>(const Vec4uq& a, int s) { return Vec4uq(simde_mm256_srli_epi64(a.v, s)); }
+inline Vec4uq operator<<(const Vec4uq& a, int s) {
+  return Vec4uq(simde_mm256_sll_epi64(a.v, simde_mm_cvtsi32_si128(s)));
+}
+inline Vec4uq operator>>(const Vec4uq& a, int s) {
+  return Vec4uq(simde_mm256_srl_epi64(a.v, simde_mm_cvtsi32_si128(s)));
+}
 inline Vec4uq& operator&=(Vec4uq& a, const Vec4uq& b) { a.v = simde_mm256_and_si256(a.v, b.v); return a; }
 inline Vec4uq& operator|=(Vec4uq& a, const Vec4uq& b) { a.v = simde_mm256_or_si256(a.v, b.v); return a; }
 inline Vec4uq& operator^=(Vec4uq& a, const Vec4uq& b) { a.v = simde_mm256_xor_si256(a.v, b.v); return a; }
@@ -654,8 +666,29 @@ enum VectorSelect {
 
 template <VectorSelect S0, VectorSelect S1, VectorSelect S2, VectorSelect S3>
 inline Vec4f vshuffle_ps(Vec4f x, Vec4f y) {
-  int imm = S0 + S1 * 4 + (S2 - Bx) * 16 + (S3 - Bx) * 64;
-  return Vec4f(simde_mm_shuffle_ps(x.v, y.v, imm));
+  float a[4], b[4], o[4];
+  x.store(a);
+  y.store(b);
+  auto sel = [&](VectorSelect s) -> float {
+    switch (s) {
+      case Ax: return a[0];
+      case Ay: return a[1];
+      case Az: return a[2];
+      case Aw: return a[3];
+      case Bx: return b[0];
+      case By: return b[1];
+      case Bz: return b[2];
+      case Bw: return b[3];
+    }
+    return 0.f;
+  };
+  o[0] = sel(S0);
+  o[1] = sel(S1);
+  o[2] = sel(S2);
+  o[3] = sel(S3);
+  Vec4f r;
+  r.load(o);
+  return r;
 }
 
 template <VectorSelect S0, VectorSelect S1, VectorSelect S2, VectorSelect S3>
