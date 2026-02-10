@@ -465,9 +465,9 @@ int BmpSaveBitmapJPG( BmpBitmap *bmp, char *fname,
     /* default compression parameters, we shouldn't be worried about these */
     jpeg_set_defaults( &cinfo );
     /* set quality (0..100) */
-    jpeg_set_quality (&cinfo, quality ? quality : 100, TRUE);
+    jpeg_set_quality (&cinfo, quality ? quality : 100, (boolean)TRUE);
     /* Now do the compression .. */
-    jpeg_start_compress( &cinfo, TRUE );
+    jpeg_start_compress( &cinfo, (boolean)TRUE );
     /* like reading a file, this time write one row at a time */
     while( cinfo.next_scanline < cinfo.image_height )
     {

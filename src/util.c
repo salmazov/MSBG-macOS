@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#ifdef MIMP_ON_LINUX
+#if defined(MIMP_ON_LINUX) || defined(MIMP_ON_MAC)
 #include <sys/mman.h> 
 #endif
 #include <math.h>
@@ -323,9 +323,36 @@ rcCatch:
   return rcThis;
 
 #else
-  
-  TRCERR(("%s not supported on non-Windows platform\n",UT_FUNCNAME));
-  return MI_ERROR;
+
+  /* On Unix/macOS, use madvise as equivalent of Windows VirtualAlloc(MEM_RESET).
+   * This hints the OS that the pages can be reclaimed, similar to UtMemDisclaim
+   * on Windows. If madvise is unavailable or fails, silently ignore — this is
+   * just an optimization hint. */
+  (void)doReleasePhysical;
+
+  if (size == 0) return MI_OK;
+
+  void *start;
+  size_t csize;
+  if (!isPageAligned)
+  {
+    start = UtPageAlign(TRUE, addr, size, &csize);
+  }
+  else
+  {
+    start = addr;
+    csize = size;
+  }
+  if (csize == 0) return MI_OK;
+
+#if defined(__APPLE__)
+  /* macOS: MADV_FREE is preferred (lazy reclaim) */
+  madvise(start, csize, MADV_FREE);
+#elif defined(MIMP_ON_LINUX)
+  madvise(start, csize, MADV_DONTNEED);
+#endif
+
+  return MI_OK;
 
 #endif
 }

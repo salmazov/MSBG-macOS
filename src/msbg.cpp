@@ -1783,6 +1783,11 @@ void MultiresSparseGrid::setRefinementMap(
 	  }
 	  #endif
 	  
+	  // For dense MG levels, 'bid' is used as a z-slice index by
+	  // SBG_FOR_EACH_VOXEL_IN_BLOCK_GEN. Skip bids beyond the dense
+	  // grid's z-range to prevent out-of-bounds access.
+	  if(isDenseLevel && bid >= sgFlags->sz()) return;
+
 	  CellFlags *dataFlags = sgFlags->getDataPtrGen_(bid,1,0);
 
 	  if(levelMg==0 && bi && !( bi->flags & BLK_NO_FLUID )) 

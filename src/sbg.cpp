@@ -663,8 +663,8 @@ void SparseGrid<Data_T>::destroy( SparseGrid*& sg )
     FREEMEM_ALIGNED(sg->_blockBitmapExtPtr);  
     FREEMEM_ALIGNED(sg->_blockmap);  
     FREEMEM_ALIGNED(sg->_skipmap);
-    sg->~SparseGrid();
     UtMutexDelete(&sg->_lock);
+    sg->~SparseGrid();
     FREEMEM(sg);
   }
 }

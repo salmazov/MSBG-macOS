@@ -216,6 +216,56 @@ extern char mm_glob_heap_dummy_tag[];
 // 
 // Aligned memory management
 //
+#if defined(__APPLE__)
+/* macOS fix: use posix_memalign directly to avoid offset corruption */
+
+#define ALLOCMEM_ALIGNED_( newptr_, type_, size_, align_ )\
+{\
+  void *_pma_ptr_ = NULL;\
+  UT_ASSERT_FATAL(((align_)>=16)&&((align_)<=255) && \
+                 !(((align_) & ((align_) - 1)))); /* check power of two*/\
+  if(posix_memalign(&_pma_ptr_, (size_t)(align_), (size_t)(size_)) != 0)\
+    _pma_ptr_ = NULL;\
+  if(!(_pma_ptr_)) {\
+    TRCERR(("out of virtual memory: posix_memalign(%.0f) failed -> exit.\n",\
+            (double)(size_)));\
+    exit(1);\
+  }\
+  newptr_ = (type_*)_pma_ptr_;\
+}
+
+#define ALLOCMEM_ALIGNED0_( newptr_, type_, size_, align_ )\
+{\
+  ALLOCMEM_ALIGNED_( newptr_, type_, size_, align_ );\
+  memset((void*)newptr_,0,size_);\
+}
+
+#define ALLOCMEM_ALIGNED2_( newptr_, type_, size_, align_, opt_noexit, tag_)\
+{\
+  void *_pma_ptr_ = NULL;\
+  UT_ASSERT_FATAL(((align_)>=16)&&((align_)<=255) && \
+                 !(((align_) & ((align_) - 1)))); /* check power of two*/\
+  if(posix_memalign(&_pma_ptr_, (size_t)(align_), (size_t)(size_)) != 0)\
+    _pma_ptr_ = NULL;\
+  if(!(_pma_ptr_)) {\
+    TRCERR(("out of virtual memory: posix_memalign(%.0f) failed -> exit.\n",\
+            (double)(size_)));\
+    exit(1);\
+  }\
+  newptr_ = (type_*)_pma_ptr_;\
+}
+
+#define FREEMEM_ALIGNED( p_ ) \
+{\
+  if(p_)\
+  {\
+    free((void*)(p_));\
+    p_=NULL;\
+  }\
+}
+
+#else /* !__APPLE__ — original offset-based scheme */
+
 #define ALLOCMEM_ALIGNED_( newptr_, type_, size_, align_ )\
 {\
   uint8_t *p0_,*p_;\
@@ -254,6 +304,51 @@ extern char mm_glob_heap_dummy_tag[];
   }\
 }
 
+#endif /* __APPLE__ (ALIGNED) */
+
+/*
+ * ALLOCMEM_LARGE_ALIGNED_ / FREEMEM_LARGE_ALIGNED
+ *
+ * On macOS/ARM64 the original scheme (store alignment offset as uint16_t
+ * two bytes before the aligned pointer, recover it on free) is fragile:
+ * any out-of-bounds write from SIMD stencils, halo fills, or blockmap
+ * indexing can silently corrupt those two bytes, making the recovered
+ * base pointer wrong and causing free() to abort.
+ *
+ * Fix: use posix_memalign() directly so the OS returns a correctly-
+ * aligned pointer that can be freed with plain free(). No offset
+ * book-keeping, no corruption risk.
+ */
+#if defined(__APPLE__)
+
+#define ALLOCMEM_LARGE_ALIGNED_( newptr_, type_, size_, align_, opt_noexit, tag_)\
+{\
+  void *_pma_ptr_ = NULL;\
+  UT_ASSERT_FATAL(((align_)>=16)&&((align_)<=4096) && \
+                 !(((align_) & ((align_) - 1)))); /* check power of two */\
+  if(posix_memalign(&_pma_ptr_, (size_t)(align_), (size_t)(size_)) != 0)\
+    _pma_ptr_ = NULL;\
+  if(!(_pma_ptr_)) {\
+    TRCERR(("out of virtual memory: posix_memalign(%.0f, align=%d) failed -> exit.\n",\
+            (double)(size_), (int)(align_)));\
+    exit(1);\
+  }\
+  newptr_ = (type_*)_pma_ptr_;\
+  UT_ASSERT0(\
+      ALIGN( ((uint64_t)(newptr_)), ((uint64_t)(align_))) == (uint64_t)(newptr_));\
+}
+
+#define FREEMEM_LARGE_ALIGNED( p_ ) \
+{\
+  if(p_)\
+  {\
+    free((void*)(p_));\
+    p_=NULL;\
+  }\
+}
+
+#else /* !__APPLE__  — original offset-based scheme for Linux / Windows */
+
 #define ALLOCMEM_LARGE_ALIGNED_( newptr_, type_, size_, align_, opt_noexit, tag_)\
 {\
   uint8_t *p0_,*p_;\
@@ -266,6 +361,7 @@ extern char mm_glob_heap_dummy_tag[];
   UT_ASSERT0(\
       ALIGN( ((uint64_t)(newptr_)), ((uint64_t)(align_))) == (uint64_t)(newptr_));\
 }
+
 #define FREEMEM_LARGE_ALIGNED( p_ ) \
 {\
   if(p_)\
@@ -275,6 +371,8 @@ extern char mm_glob_heap_dummy_tag[];
     p_=NULL;\
   }\
 }
+
+#endif /* __APPLE__ */
 
 int MM_GlobHeapInit( size_t total_sz, unsigned options );
 void *MM_GlobHeapAlloc( size_t sz, const char *caller );
