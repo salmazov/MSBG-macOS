@@ -639,6 +639,11 @@ MultiresSparseGrid
 					       sgMaxSizeMB, sgInitialSizeMB, sgOptions );      
 	    sparseGrids->faceArea[iDir][lMg]->setEmptyValue( 0.0f );
 	    sparseGrids->faceArea[iDir][lMg]->setFullValue( 1.0f );
+
+	    sprintf(chbuf,"MSG:FCOEFF_%d:%d:%d",iDir,l,lMg);
+	    sparseGrids->faceCoeff[iDir][lMg] =
+	      SparseGrid<float>::create( chbuf, sx, sy, sz, blockSize,
+					sgMaxSizeMB, sgInitialSizeMB, sgOptions );
 	  }
 
 	  sprintf(chbuf,"MSG:FLT6:%d:%d",l,lMg);

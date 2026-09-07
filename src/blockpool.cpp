@@ -494,6 +494,10 @@ BlockPool *BlockPool::create( const char *name,
     // Use constant byte size for all block pool extends to prevent global heap fragmentation
     size_t extendSize_MB = 64;    
     p->_nBlocksExtend = ((extendSize_MB*(size_t)ONE_MB)/(size_t)p->_blockSize);
+    // A small sparse grid should not reserve its entire virtual domain on
+    // the first allocation. Keep the 64 MB policy for large grids, but
+    // grow small pools in roughly eighth-domain chunks (rounded below).
+    p->_nBlocksExtend = MIN(p->_nBlocksExtend, MAX(4, p->_nBlocksMax / 8));
   }
 
   if(!(options & OPT_FIXED_EXTEND))
