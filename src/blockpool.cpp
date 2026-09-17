@@ -135,22 +135,28 @@ int BlockPool::extend_( int iExtend, void **pBlockOut, int nBlocksIn,
   memset(chunkOfBlocks0,0,szChunkPad);
   memset(BYTE_OFFSET(chunkOfBlocks0,szNeeded-szChunkPad),0,szChunkPad);
 
-  UT_ASSERT(_extends[iExtend]==NULL);
-  
-  _extends[iExtend] = chunkOfBlocks0;
+  UT_ASSERT(_extends[iExtend].load(std::memory_order_acquire)==NULL);
 
   ExtendInfo ei;
   ei.extendSize = szNeeded;
   ei.extendNumBlocks = nBlocks;
 
-  _extendsInfo.resize(iExtend+1);
+  // Fully initialize metadata and accounting before publishing the segment.
+  // Readers use _extends[iExtend] as the segment-exists signal.
+  // Extensions may be requested out of order by concurrent allocators.
+  // Never shrink metadata when a lower-numbered segment completes later.
+  if (_extendsInfo.size() <= static_cast<size_t>(iExtend)) {
+    _extendsInfo.resize(static_cast<size_t>(iExtend) + 1);
+  }
   _extendsInfo[iExtend] = ei;
-
-  if(pIdxExtOut) *pIdxExtOut = iExtend;
 
   _totalSize += szNeeded;
   _nBlocksTotal += nBlocks;
   UT_ASSERT(_nBlocksTotal<=_nBlocksMax);
+
+  _extends[iExtend].store(chunkOfBlocks0, std::memory_order_release);
+
+  if(pIdxExtOut) *pIdxExtOut = iExtend;
 
   #if 0
   //
