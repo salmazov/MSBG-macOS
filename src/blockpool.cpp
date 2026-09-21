@@ -63,11 +63,29 @@ int BlockPool::extend_( int iExtend, void **pBlockOut, int nBlocksIn,
   UT_ASSERT0(FALSE);
   #endif
 
-  int nBlocks = nBlocksIn ? nBlocksIn : _nBlocksExtend,
-      trcLevel = 3; //pBlockOut ? 2 : 3;
+  int trcLevel = 3; //pBlockOut ? 2 : 3;
       //trcLevel = 2; //pBlockOut ? 2 : 3;
 
-  nBlocks = MIN( nBlocks, _nBlocksMax-_nBlocksTotal );
+#ifdef BLOCKPOOL_FAST_MONOTONIC
+  // Blocks are mapped to segments by their global block index:
+  //   segment = iBlock >> _bp_blocks_per_seg_log2
+  // Therefore each segment must be sized from its own logical index range,
+  // not from the amount of memory allocated so far. Extensions can be
+  // requested out of order by concurrent allocators (e.g. segment 1 before
+  // segment 0); using _nBlocksTotal here can then make the later lower segment
+  // too small and cause writes past the end of its chunk.
+  const int iBlockFirst =
+      iExtend * static_cast<int>(_bp_blocks_per_seg);
+  UT_ASSERT(iBlockFirst >= 0 && iBlockFirst < _nBlocksMax);
+
+  int nBlocks = MIN(static_cast<int>(_bp_blocks_per_seg),
+                    _nBlocksMax - iBlockFirst);
+  if(nBlocksIn) nBlocks = MIN(nBlocks, nBlocksIn);
+#else
+  int nBlocks = nBlocksIn ? nBlocksIn : _nBlocksExtend;
+  nBlocks = MIN(nBlocks, _nBlocksMax - _nBlocksTotal);
+#endif
+
   UT_ASSERT(nBlocks>0);
 
   if(_maxTotalSize>0)
